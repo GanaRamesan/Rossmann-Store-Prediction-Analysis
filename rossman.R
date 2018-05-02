@@ -102,7 +102,7 @@ sqrt(mean((train$Sales-train$Results)^2))
 
 #Linear Regression
 
-store_function <- function(selected_store) {
+linear_reg_function <- function(selected_store) {
   store_one <- train[train$Store == selected_store,]  # select a store
   idx_shuffle <- sample(nrow(store_one))  # shuffle the data
   store_one$Result <- 0
@@ -128,7 +128,50 @@ store_function <- function(selected_store) {
   sqrt(mean((store_one$Sales-store_one$Result)^2))#Root mean square error
 }
 paste("Root Mean Square Error: ", store_function(1)) 
-#The root mean square value for linear regression is better than baseline prediction
+#The root mean square value for linear regression is better than baseline prediction for store 1.
+#calling the linear regression function for all the stores
+inaccuracies <- rep(0,length(stores_to_test))
+i <- 0
+for ( j in stores_to_test ) {
+  inaccuracies[i] <- linear_reg_function(j)
+  i <- i + 1
+}
+inaccuracies
+mean(inaccuracies)
+#the predict model using this linear regression fails as the Week factor does not match in test_set and train_set in few iterations
+#We solve this by manually changing the variables.
+
+table1 <- train[c(1,2)]
+table1 <- cbind(table1,model.matrix(Sales ~ Promo + StateHoliday + SchoolHoliday + DayOfWeek + as.factor(Year) 
+                            + as.factor(Month) + as.factor(Day) + as.factor(Week), data = train))
+
+
+linear_reg_function2 <- function(selected_store) {
+  store_one <- table1[table1$Store == selected_store,2:ncol(table1)]  # select a store
+  idx_shuffle <- sample(nrow(store_one))  # shuffle the data
+  store_one$Result <- 0
+  y <- nrow(store_one)
+  #we use 10 fold cross validation 
+  for (j in 1:10) {    
+    idx <- floor(1+0.1*(j-1)*y):(0.1*j*y)  #select 10% data rows
+    test_set <- store_one[idx_shuffle[idx],]  #the set for testing
+    train_set <- store_one[idx_shuffle[-idx],1:(ncol(store_one)-1)]  #the set for training
+    lr_m <- lm(Sales ~ ., train_set)  # The model for linear regression
+    store_one[idx_shuffle[idx],]$Result <- predict(lr_m,test_set) 
+    #using the model to use on test set and predict results
+  }
+  store_one[store_one$Result == max(store_one$Result),]$Result <- mean(store_one$Result)
+  
+  sqrt(mean((store_one$Sales-store_one$Result)^2))#Root mean square error
+}
+inaccuracies <- rep(0,length(stores_to_test))
+i <- 0
+for ( j in stores_to_test ) {
+  inaccuracies[i] <- linear_reg_function2(j)
+  i <- i + 1
+}
+mean(inaccuracies)
+
 
 #We try random forest to reduce the error
 random_forest_model <- function(selected_store,category_of_model,...) {
